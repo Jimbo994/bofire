@@ -20,7 +20,13 @@ import numpy as np
 import pandas as pd
 import torch
 from botorch.acquisition import get_acquisition_function
-from botorch.test_functions.multi_objective import DTLZ2, DTLZ7, BraninCurrin
+from botorch.test_functions.multi_objective import (
+    DTLZ2,
+    DTLZ7,
+    ZDT3,
+    BraninCurrin,
+    VehicleSafety,
+)
 from botorch.utils.multi_objective.hypervolume import Hypervolume
 from botorch.utils.multi_objective.pareto import is_non_dominated
 
@@ -64,7 +70,8 @@ class ExperimentalParEGO(RuntimeParEGO):
             patch.object(parego_module, "sample_simplex", record),
         ):
             torch.manual_seed(draw_seed)
-            result = self._get_objective_and_constraints()
+            objectives, constraints, etas = self._get_objectives_and_constraints(1)
+            result = objectives[0], constraints, etas
         assert len(draws) == 1
         return result, draws[0]
 
@@ -114,9 +121,20 @@ def problem_spec(name: str):
         # Tight objective-specific reference; avoids the uninformative 15^3
         # box in the generic DTLZ7 test-function default.
         ref = [1.1, 1.1, 7.0]
-    else:
+    elif name == "BraninCurrin":
         problem = BraninCurrin()
         ref = [18.0, 6.0]
+    elif name == "DTLZ2-5obj":
+        problem = DTLZ2(dim=8, num_objectives=5)
+        ref = [1.1] * 5
+    elif name == "ZDT3":
+        problem = ZDT3(dim=6)
+        ref = [1.1, 1.1]
+    elif name == "VehicleSafety":
+        problem = VehicleSafety()
+        ref = problem.ref_point.cpu().tolist()
+    else:
+        raise ValueError(f"Unknown problem: {name}")
     domain = Domain(
         inputs=Inputs(
             features=[
@@ -258,7 +276,7 @@ def run_pair(args, problem_name, seed):
         )
         pd.DataFrame(rows).to_csv(destination, index=False)
         print(
-            f"{problem_name} seed={seed:02} {policy:13} "
+            f"{problem_name} q={args.batch_size} seed={seed:02} {policy:13} "
             f"HV={rows[-1]['hypervolume']:.5f} "
             f"total={time.perf_counter()-start:.1f}s",
             flush=True,
