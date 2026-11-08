@@ -1,5 +1,7 @@
 # Does ParEGO need a different scalarization for each batch candidate?
 
+**Expanded study:** see the [six-problem q=4 and q=8 report](extended_results/report.md), with 20 paired seeds per case and a matched final budget of 80 observations. It includes five-objective DTLZ2, ZDT3, and VehicleSafety, plus the original problems. The original three-problem results below are retained for provenance; use the expanded report for the full comparison and its multiple-testing adjustment.
+
 This experiment compares two scalarization policies inside BoFire's existing ParEGO strategy. Production BoFire code was not changed. Both variants use qLogNEI and sequential pending-aware candidate generation.
 
 At this budget, per-candidate scalarization has a clear positive final-hypervolume effect on DTLZ2, BraninCurrin. The result on DTLZ7 is inconclusive after accounting for seed variation. These results support independent scalarizations when learning a Pareto front, while leaving room for problem-dependent behavior.
@@ -76,5 +78,19 @@ unzip -n benchmark/results/raw_runs.zip -d benchmark/results
 conda run -n bofire python benchmark/analyze_parego_scalarization.py benchmark/results
 
 # Or run a new paired experiment. The script checkpoints completed runs.
-OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 conda run --no-capture-output -n bofire python benchmark/benchmark_parego_scalarization.py --output output/parego_scalarization
+PYTHONPATH=. OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 conda run --no-capture-output -n bofire python benchmark/benchmark_parego_scalarization.py --output output/parego_scalarization
 ```
+
+Reproduce the expanded study from this checkout:
+
+```bash
+# Restore the recorded runs and regenerate the expanded report and figures.
+unzip -n benchmark/extended_results/raw_runs.zip -d benchmark/extended_results
+conda run -n bofire python benchmark/analyze_extended_parego.py benchmark/extended_results
+
+# Run every case afresh into a separate directory, without reusing historical runs.
+PYTHONPATH=. OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 conda run --no-capture-output -n bofire python benchmark/extend_parego_scalarization.py --no-reuse --output output/parego_extended_fresh
+conda run -n bofire python benchmark/analyze_extended_parego.py output/parego_extended_fresh
+```
+
+The published extension reuses 120 original q=8 runs and adds 360 runs. Its manifest records the runner hash, source commit, dependencies, and configuration. Install this checkout and use the recorded dependency versions to reproduce it. `PYTHONPATH=.` ensures that the experiment imports this checkout rather than a different editable installation.

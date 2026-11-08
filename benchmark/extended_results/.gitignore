@@ -1,0 +1,3 @@
+# Per-run CSVs are distributed together in raw_runs.zip.
+q4/*.csv
+q8/*.csv

@@ -1,0 +1,108 @@
+{
+  "initial": 16,
+  "mc_samples": 128,
+  "restarts": 4,
+  "raw_samples": 128,
+  "maxiter": 200,
+  "threads": 1,
+  "workers": 8,
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "problems": [
+    "DTLZ2",
+    "DTLZ7",
+    "BraninCurrin",
+    "DTLZ2-5obj",
+    "ZDT3",
+    "VehicleSafety"
+  ],
+  "batch_sizes": [
+    4,
+    8
+  ],
+  "additional_evaluations": 64,
+  "botorch": "0.18.1",
+  "bofire": "0.4.1.dev4+gb00ce0ae0",
+  "torch": "2.5.1",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "source_commit": "939292f9e7e32dddf5d1a1c7e29824dbd9f630eb",
+  "runner_sha256": "85d4c4941239d9828a9f3841b16d5994cdda4fdf5c2b581eb3ee4ce04455e798",
+  "reuse_original_q8": true,
+  "note": "Exploratory extension. Historical q8 runs retain their original CPU-sharing timings.",
+  "problem_specs": {
+    "DTLZ2": {
+      "inputs": 6,
+      "objectives": 3,
+      "reference": [
+        1.1,
+        1.1,
+        1.1
+      ]
+    },
+    "DTLZ7": {
+      "inputs": 6,
+      "objectives": 3,
+      "reference": [
+        1.1,
+        1.1,
+        7.0
+      ]
+    },
+    "BraninCurrin": {
+      "inputs": 2,
+      "objectives": 2,
+      "reference": [
+        18.0,
+        6.0
+      ]
+    },
+    "DTLZ2-5obj": {
+      "inputs": 8,
+      "objectives": 5,
+      "reference": [
+        1.1,
+        1.1,
+        1.1,
+        1.1,
+        1.1
+      ]
+    },
+    "ZDT3": {
+      "inputs": 6,
+      "objectives": 2,
+      "reference": [
+        1.1,
+        1.1
+      ]
+    },
+    "VehicleSafety": {
+      "inputs": 5,
+      "objectives": 3,
+      "reference": [
+        1864.72022,
+        11.81993945,
+        0.2903999384
+      ]
+    }
+  }
+}

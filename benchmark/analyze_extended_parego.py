@@ -23,6 +23,20 @@ POLICIES = {
 COLORS = {"per_batch": "#0072b2", "per_candidate": "#d55e00"}
 
 
+def conclusion(comparisons):
+    gains = sum(row["holm_p"] < 0.05 and row["ci_low"] > 0 for row in comparisons)
+    losses = sum(row["holm_p"] < 0.05 and row["ci_high"] < 0 for row in comparisons)
+    remaining = len(comparisons) - gains - losses
+    return (
+        f"Independent weights have a clear positive effect in {gains} of the "
+        f"{len(comparisons)} cases and a clear negative effect in {losses}; "
+        f"{remaining} cases are inconclusive under this budget. Here, clear means "
+        "the paired mean-difference interval excludes zero and the Holm-adjusted "
+        "signed-rank p-value is below 0.05. This supports a problem-dependent "
+        "interpretation rather than a universal performance claim."
+    )
+
+
 def load_case(root, q, problem, seeds, rounds):
     frames = []
     audits = []
@@ -48,6 +62,9 @@ def load_case(root, q, problem, seeds, rounds):
             frames.append(frame)
             candidates[policy] = pd.read_csv(stem.with_suffix(".candidates.csv"))
             assert len(candidates[policy]) == rounds * q, stem
+            weights = np.asarray(candidates[policy].weights.map(json.loads).tolist())
+            assert np.isfinite(weights).all() and (weights >= 0).all(), stem
+            assert np.allclose(weights.sum(axis=1), 1.0, atol=1e-12), stem
         for iteration in range(1, rounds + 1):
             weight_groups = {
                 policy: records.loc[records.iteration == iteration, "weights"]
@@ -86,7 +103,9 @@ def plot_cases(data, manifest, output, q, metric, title, ylabel):
     problems = manifest["problems"]
     columns = 3
     rows = (len(problems) + columns - 1) // columns
-    fig, axes = plt.subplots(rows, columns, figsize=(15, 4 * rows), squeeze=False)
+    fig, axes = plt.subplots(
+        rows, columns, figsize=(15, 4 * rows), squeeze=False, layout="constrained"
+    )
     seed_count = len(manifest["seeds"])
     indices = np.random.default_rng(581).integers(
         0, seed_count, size=(10000, seed_count)
@@ -122,9 +141,8 @@ def plot_cases(data, manifest, output, q, metric, title, ylabel):
         axis.set_visible(False)
     axes.flat[0].legend(frameon=False, fontsize=9)
     fig.suptitle(
-        f"{title}: q={q}, {seed_count} paired seeds\nMeans and 95% bootstrap confidence intervals"
+        f"{title}: q={q}, {seed_count} paired seeds\nMeans and pointwise 95% bootstrap confidence intervals"
     )
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
     fig.savefig(output, dpi=180, bbox_inches="tight")
     plt.close(fig)
 
@@ -227,6 +245,8 @@ def main():
         f"{manifest['initial']} initial observations and {manifest['additional_evaluations']} additional evaluations. "
         "Both policies use sequential, pending-aware qLogNEI. Only the frequency of drawing a new scalarization changes.",
         "",
+        conclusion(comparisons),
+        "",
         "## Design",
         "",
         "- "
@@ -235,13 +255,24 @@ def main():
             for q in manifest["batch_sizes"]
         )
         + f". All end at {manifest['initial'] + manifest['additional_evaluations']} observations.",
+        "- The shared policy draws one trade-off direction per round; independent weights draw "
+        f"{manifest['additional_evaluations']} over each run. Thus the shared policy samples twice "
+        "as many directions at q=4 as at q=8 in this design.",
         "- 128 MC samples, four restarts, 128 raw samples, maxiter=200; noiseless objectives, all minimized.",
-        f"- {manifest['workers']} workers with one CPU thread each; BoTorch {manifest['botorch']}.",
+        f"- {manifest['workers']} workers with one CPU thread each; CPU double precision; "
+        f"BoTorch {manifest['botorch']}, PyTorch {manifest['torch']}.",
         "- Initial designs and first scalarization per round are matched between policies. "
         "Separate random streams control weights, MC samplers, and optimizer initialization.",
+        f"- Across {len(audits)} problem/batch-size/seed pairs, the largest coordinate difference "
+        "between the first candidate of the first batch is "
+        f"{max(row['first_candidate_max_difference'] for row in audits):.3g}. "
+        "Logged weights are checked for unit sum and one distinct vector per batch versus per candidate.",
         "- The original q=8 runs on DTLZ2, DTLZ7, and Branin–Currin are reused from the versioned November 4 archive. "
         "All q=4 runs and q=8 runs on the added problems are new. Runtime comparisons across batch sizes "
         "are affected by historical four-worker versus new eight-worker CPU contention.",
+        "- This compares experimental policy subclasses, rather than a before/after rerun of the production PR. "
+        f"New runs use source commit `{manifest['source_commit']}`. The manifest records the experiment runner's "
+        "SHA-256 and dependency metadata; the source commit identifies the actual BoFire checkout.",
         "- This is an exploratory extension of the original study. All problem/batch-size cases are reported. "
         f"Paired tests use a single Holm correction across all {len(comparisons)} cases.",
         "",
@@ -293,14 +324,19 @@ def main():
         "",
         "The results concern short-horizon synthetic front learning. They do not establish a universal "
         "advantage for every preference, noise level, reference point, or evaluation budget. "
-        "Warning counts and optimizer retries are retained in the recorded wall times.",
+        "Warnings are counted; automatic optimizer retries remain included in the recorded wall times. "
+        "At equal evaluation budgets, q=4 has twice as many opportunities to refit the model and "
+        "adapt to completed observations as q=8; this is distinct from the scalarization-policy comparison within each q. "
+        "Independent random weights increase the number of sampled trade-offs but do not guarantee uniform "
+        "Pareto-front coverage. Hypervolume alone does not establish uniform coverage. "
+        "Inconclusive comparisons do not establish equivalence between the policies.",
         "",
         "- [Configuration and provenance](manifest.json)",
         "- [All per-round measurements](all_results.csv)",
         "- [Paired statistics](paired_comparisons.csv)",
         "- [Runtime summary](summary.csv)",
         "- [Pairing checks](pairing_audit.csv)",
-        "- Raw per-run and per-candidate files are in q4/ and q8/.",
+        "- [Raw run and candidate archive](raw_runs.zip); extract here to restore q4/ and q8/ CSV files.",
         "- [q=4 runtime curves](runtime_q4.png)",
         "- [q=8 runtime curves](runtime_q8.png)",
         "",
